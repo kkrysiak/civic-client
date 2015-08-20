@@ -4,9 +4,18 @@
     .controller('BrowseController', BrowseController);
 
 // @ngInject
-  function BrowseController($scope, uiGridConstants, $http, $state, Datatables, _, $log) {
-    var pageCount = 25;
+  function BrowseController($scope,
+                            $state,
+                            uiGridConstants,
+                            Datatables,
+                            _) {
+    console.log('BrowseController called.');
+    var vm = $scope.vm = {};
+
+    var pageCount = 1000;
+
     var defaults = {};
+
     defaults.variants  = {
       mode: 'variants',
       page: 1,
@@ -21,49 +30,6 @@
       count: pageCount,
       sorting: [{field: 'name', direction: uiGridConstants.ASC }],
       filters: []
-    };
-
-    var ctrl = $scope.ctrl = {};
-    var maxRows = ctrl.maxRows = pageCount;
-
-    // declare ui paging/sorting/filtering vars
-    ctrl.mode = '';
-    ctrl.totalItems = Number();
-    ctrl.page = 1;
-    ctrl.count= Number();
-
-    ctrl.filters = [];
-    ctrl.sorting = [];
-
-    ctrl.isFiltered = ctrl.filters.length > 0;
-
-    $scope.$watch('ctrl.totalItems', function() {
-      ctrl.totalPages = Math.ceil(ctrl.totalItems / pageCount);
-    });
-
-    ctrl.gridOptions = {
-      enablePaginationControls: false,
-
-      useExternalFiltering: true,
-      useExternalSorting: true,
-      useExternalPaging: true,
-
-      paginationPageSizes: [maxRows],
-      paginationPageSize: maxRows,
-      minRowsToShow: maxRows + 1,
-
-      enableHorizontalScrollbar: uiGridConstants.scrollbars.NEVER,
-      enableVerticalScrollbar: uiGridConstants.scrollbars.NEVER,
-
-      enableFiltering: true,
-      enableColumnMenus: false,
-      enableSorting: true,
-      enableRowSelection: true,
-      enableRowHeaderSelection: false,
-      multiSelect: false,
-      modifierKeysToMultiSelect: false,
-      noUnselect: true,
-      rowTemplate: 'app/views/browse/browseGridRow.tpl.html'
     };
 
     // set up column defs and data transforms for each mode
@@ -103,10 +69,10 @@
           name: 'evidence_item_count',
           width: '10%',
           displayName: 'Evidence',
-          enableFiltering: false,
+          enableFiltering: true,
           allowCellFocus: false,
           filter: {
-            condition: uiGridConstants.filter.CONTAINS
+            condition: uiGridConstants.filter.GREATER_THAN_OR_EQUAL
           }
         }
       ],
@@ -166,56 +132,47 @@
       ]
     };
 
-    ctrl.gridOptions.onRegisterApi = function(gridApi) {
-      ctrl.gridApi = gridApi;
+    vm.gridOptions = {
+      //infiniteScrollRowsFromEnd: 40,
+      //infiniteScrollUp: true,
+      //infiniteScrollDown: true,
+      useExternalFiltering: false,
+      useExternalSorting: false,
 
-      // called from pagination directive when page changes
-      ctrl.pageChanged = function() {
-        $log.info('page changed: ' + ctrl.page);
-        updateData();
-      };
+      enableFiltering: true,
+      enableColumnMenus: false,
+      enableSorting: true,
+      enableRowSelection: true,
+      enableRowHeaderSelection: false,
+      multiSelect: false,
+      modifierKeysToMultiSelect: false,
+      noUnselect: true,
+      minRowsToShow: 25,
+      rowTemplate: 'app/views/browse/browseGridRow.tpl.html',
+      columnDefs: modeColumnDefs[vm.mode],
+      data: 'vm.data'
+    };
 
-      // reset paging and do some other stuff on filter changes
-      gridApi.core.on.filterChanged($scope, function() {
-        $log.info('filter changed.');
-        // updateData with new filters
-        var filteredCols = _.filter(this.grid.columns, function(col) {
-          return _.has(col.filter, 'term') && !_.isEmpty(col.filter.term) && _.isString(col.filter.term);
+    vm.data = [];
+
+    vm.gridOptions.onRegisterApi = function(gridApi) {
+      vm.gridApi = gridApi;
+
+      fetchData(vm.mode, pageCount, 1, [], [])
+        .then(function(response) {
+          console.log('datatables returned');
+          vm.data = response.result;
+        })
+        .catch(function(error) {
+          console.error('fetchData error: ' + error);
+        })
+        .finally(function() {
+          console.log('fetchData done.');
         });
-        if (filteredCols.length > 0) {
-          ctrl.filters = _.map(filteredCols, function(col) {
-            return {
-              'field': col.field,
-              'term': col.filter.term
-            };
-          });
-        } else {
-          ctrl.filters = [];
-        }
-        ctrl.page = 1;
-        updateData();
-      });
-
-      gridApi.core.on.sortChanged($scope, function(grid, sortColumns) {
-        $log.info('sort changed.');
-        if (sortColumns.length > 0) {
-          ctrl.sorting = _.map(sortColumns, function(col) {
-            return {
-              'field': col.field,
-              'direction': col.sort.direction
-            };
-          });
-        } else {
-          ctrl.sorting = [];
-        }
-        updateData();
-      });
 
       // called when user clicks on a row
       gridApi.selection.on.rowSelectionChanged($scope, function(row){
-        // $log.info(['geneID:', row.entity.id, 'variantId:', row.entity.variant_id].join(' '));
-        $log.info(['ctrl.mode:', ctrl.mode, 'geneId:', row.entity.gene_id, 'variantId:', row.entity.variant_id].join(' '));
-        if(ctrl.mode === 'variants') {
+        if(vm.mode === 'variants') {
           $state.go('events.genes.summary.variants.summary', {
             geneId: row.entity.gene_id,
             variantId: row.entity.variant_id
@@ -226,30 +183,30 @@
           });
         }
       });
+
     };
 
     function updateData() {
-      fetchData(ctrl.mode, ctrl.count, ctrl.page, ctrl.sorting, ctrl.filters)
+      fetchData(vm.mode, vm.count, vm.page, vm.sorting, vm.filters)
         .then(function(data){
-          ctrl.gridOptions.data = data.result;
-          ctrl.gridOptions.columnDefs = modeColumnDefs[ctrl.mode];
-          ctrl.totalItems = data.total;
+          vm.gridOptions.data = data.result;
         });
     }
 
-    ctrl.switchMode = function(mode) {
-      ctrl.mode = mode;
-      ctrl.filters = defaults[mode].filters;
-      ctrl.sorting= defaults[mode].sorting;
-      ctrl.page = defaults[mode].page;
-
+    vm.switchMode = function(mode) {
+      vm.mode = mode;
+      vm.count = defaults[mode].count;
+      vm.filters = defaults[mode].filters;
+      vm.sorting= defaults[mode].sorting;
+      vm.page = defaults[mode].page;
+      vm.gridOptions.columnDefs = modeColumnDefs[vm.mode];
       updateData();
     };
 
     function fetchData(mode, count, page, sorting, filters) {
       var request;
 
-      request= {
+      request = {
         mode: mode,
         count: count,
         page: page
@@ -269,6 +226,6 @@
       return Datatables.query(request);
     }
 
-    ctrl.switchMode('variants');
+    vm.switchMode('variants');
   }
 })();

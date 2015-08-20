@@ -4,18 +4,18 @@
       <div class="row">
         <div class="col-xs-6 name">
           <h3>
-            Browse by {{ ctrl.mode|capitalize }}
+            Browse by {{ vm.mode|capitalize }}
           </h3>
         </div>
 
         <div class="col-xs-6 tabs">
           <ul class="nav nav-tabs pull-right">
-            <li ng-class="{'active': ctrl.mode == 'variants'}">
-              <a ng-click="ctrl.switchMode('variants')">Browse by Variant</a>
+            <li ng-class="{'active': vm.mode == 'variants'}">
+              <a ng-click="vm.switchMode('variants')">Browse by Variant</a>
             </li>
 
-            <li ng-class="{'active': ctrl.mode == 'genes'}">
-              <a ng-click="ctrl.switchMode('genes')">Browse by Gene</a>
+            <li ng-class="{'active': vm.mode == 'genes'}">
+              <a ng-click="vm.switchMode('genes')">Browse by Gene</a>
             </li>
 
           </ul>
@@ -25,33 +25,18 @@
   </div>
   <div class="row">
     <div class="col-xs-12">
+        <span class="record-info">
+          <span>{{ vm.gridApi.grid.rows.length }} total items</span>
+          <span ng-if="vm.gridApi.grid.renderContainers.body.visibleRowCache.length !== vm.gridApi.grid.rows.length">
+            (showing {{ vm.gridApi.grid.renderContainers.body.visibleRowCache.length }})
+          </span>
+        </span>
       <div class="gridContainer">
-        <div ui-grid="ctrl.gridOptions"
+        <div ui-grid="vm.gridOptions"
              ui-grid-cellnav
              ui-grid-selection
-             ui-grid-pagination
              ui-grid-auto-resize></div>
       </div>
-    </div>
-  </div>
-  <div class="row">
-    <div class="col-xs-12 text-center grid-pagination">
-      <pagination
-        class="pagination-sm"
-        ng-change="ctrl.pageChanged()"
-        ng-model="ctrl.page"
-        items-per-page="ctrl.maxRows"
-        max-size="15"
-        boundary-links="true"
-        rotate="false"
-        align="true"
-        total-items="ctrl.totalItems"
-        direction-links="true">
-      </pagination>
-      <p class="page-info small">
-        {{ ctrl.totalItems }} {{ ctrl.isFiltered ? "filtered" : "total" }} {{ ctrl.browseMode }} &nbsp;&nbsp;&nbsp;&nbsp;
-        Page {{ ctrl.page }} of {{ ctrl.totalPages }}
-      </p>
     </div>
   </div>
 </div>
